@@ -1,6 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
+// Categories and Keywords
+const categories = {
+  OCD: ['OCD', 'Obsessive Compulsive Disorder', 'Compulsion'],
+  Neurology: ['Neurology', 'Brain', 'Neurodegenerative', 'CNS', 'Central Nervous System'],
+  Immunology: ['Immunology', 'Immunotherapy', 'Antibodies', 'Inflammation', 'Autoimmune'],
+  Pediatrics: ['Pediatrics', 'Children', 'Infants', 'Pediatric', 'Neonatal'],
+  'Infectious Diseases': ['Infectious Disease', 'Infection', 'Virus', 'Bacterial', 'Viral'],
+  'Metabolic Disorders': ['Metabolic', 'Diabetes', 'Obesity', 'Endocrine'],
+  Cardiology: ['Cardiology', 'Heart', 'Cardiac', 'Cardiovascular', 'Arrhythmia', 'Atherosclerosis'],
+  Oncology: ['Oncology', 'Cancer', 'Tumor', 'Neoplasm', 'Chemotherapy', 'Radiotherapy'],
+  'Rare Diseases': ['Rare Diseases', 'Orphan Diseases', 'Genetic Disorders', 'Undiagnosed Diseases'],
+  Others: ['Other', 'Miscellaneous', 'Unknown', 'General'],
+};
+
 const RssFeedPage = () => {
   const [feedItems, setFeedItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
@@ -28,8 +42,23 @@ const RssFeedPage = () => {
           pubDate: item.querySelector('pubDate')?.textContent || '',
         }));
 
-        setFeedItems(items);
-        setFilteredItems(items);
+        // Categorize items based on title/description
+        const categorizedItems = items.map((item) => {
+          const category = Object.keys(categories).find((category) =>
+            categories[category].some((keyword) =>
+              item.title.toLowerCase().includes(keyword.toLowerCase()) ||
+              item.description.toLowerCase().includes(keyword.toLowerCase())
+            )
+          );
+
+          return {
+            ...item,
+            category: category || 'Others', // Default to 'Others' if no match
+          };
+        });
+
+        setFeedItems(categorizedItems);
+        setFilteredItems(categorizedItems);
       } catch (err) {
         setError('Failed to fetch RSS feed. Please try again later.');
       }
@@ -47,9 +76,7 @@ const RssFeedPage = () => {
     if (category === '') {
       setFilteredItems(feedItems);
     } else {
-      const filtered = feedItems.filter((item) =>
-        item.title.toLowerCase().includes(category.toLowerCase())
-      );
+      const filtered = feedItems.filter((item) => item.category === category);
       setFilteredItems(filtered);
     }
   };
@@ -90,14 +117,11 @@ const RssFeedPage = () => {
             className="px-3 py-2 border rounded-md"
           >
             <option value="">All Categories</option>
-            <option value="OCD">OCD</option>
-            <option value="Behavioral">Behavioral</option>
-            <option value="Nuerology">Nuerology</option>
-            <option value="Immunology">Immunology</option>
-            <option value="Infectious Desease">Infectious</option>
-            <option value="Rare Deseases">Rare</option>
-            <option value="Pediatrics">Pediatrics</option>
-            <option value="Metabolic Disorders">Metabolic</option>
+            {Object.keys(categories).map((category, index) => (
+              <option key={index} value={category}>
+                {category}
+              </option>
+            ))}
           </select>
 
           <button
@@ -127,6 +151,7 @@ const RssFeedPage = () => {
                 Read more
               </a>
               <p className="text-sm text-gray-500">Published on: {item.pubDate}</p>
+              <p className="text-xs text-gray-500">Category: {item.category}</p>
             </li>
           ))}
         </ul>
