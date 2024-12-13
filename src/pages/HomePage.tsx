@@ -69,7 +69,7 @@ const HomePage = () => {
 <div className="mt-6">
   <Link to="/rss-feed">
     <button className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors duration-200">
-      View RSS Feed
+      View the Latest (14 days)
     </button>
   </Link>
 </div>
