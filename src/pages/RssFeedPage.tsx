@@ -1,24 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
-// Categories and Keywords
-const categories = {
-  OCD: ['OCD', 'Obsessive Compulsive Disorder', 'Compulsion'],
-  Neurology: ['Neurology', 'Brain', 'Neurodegenerative', 'CNS', 'Central Nervous System'],
-  Immunology: ['Immunology', 'Immunotherapy', 'Antibodies', 'Inflammation', 'Autoimmune'],
-  Pediatrics: ['Pediatrics', 'Children', 'Infants', 'Pediatric', 'Neonatal'],
-  'Infectious Diseases': ['Infectious Disease', 'Infection', 'Virus', 'Bacterial', 'Viral'],
-  'Metabolic Disorders': ['Metabolic', 'Diabetes', 'Obesity', 'Endocrine'],
-  Cardiology: ['Cardiology', 'Heart', 'Cardiac', 'Cardiovascular', 'Arrhythmia', 'Atherosclerosis'],
-  Oncology: ['Oncology', 'Cancer', 'Tumor', 'Neoplasm', 'Chemotherapy', 'Radiotherapy'],
-  'Rare Diseases': ['Rare Diseases', 'Orphan Diseases', 'Genetic Disorders', 'Undiagnosed Diseases'],
-  Others: ['Other', 'Miscellaneous', 'Unknown', 'General'],
-};
-
 const RssFeedPage = () => {
   const [feedItems, setFeedItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -35,30 +22,25 @@ const RssFeedPage = () => {
         const parser = new DOMParser();
         const xml = parser.parseFromString(text, 'text/xml');
 
-        const items = Array.from(xml.querySelectorAll('item')).map((item) => ({
-          title: item.querySelector('title')?.textContent || '',
-          link: item.querySelector('link')?.textContent || '',
-          description: item.querySelector('description')?.textContent || '',
-          pubDate: item.querySelector('pubDate')?.textContent || '',
-        }));
-
-        // Categorize items based on title/description
-        const categorizedItems = items.map((item) => {
-          const category = Object.keys(categories).find((category) =>
-            categories[category].some((keyword) =>
-              item.title.toLowerCase().includes(keyword.toLowerCase()) ||
-              item.description.toLowerCase().includes(keyword.toLowerCase())
-            )
-          );
+        const items = Array.from(xml.querySelectorAll('item')).map((item) => {
+          const title = item.querySelector('title')?.textContent || '';
+          const description = item.querySelector('description')?.textContent || '';
+          const pubDate = item.querySelector('pubDate')?.textContent || '';
+          const link = item.querySelector('link')?.textContent || '';
+          const category = categorizeRFP(title, description);  // Categorize based on title and description
 
           return {
-            ...item,
-            category: category || 'Others', // Default to 'Others' if no match
+            title,
+            description,
+            pubDate,
+            link,
+            category,  // Category added here
+            status: getStatusFromDescription(description) // Parsing status from description
           };
         });
 
-        setFeedItems(categorizedItems);
-        setFilteredItems(categorizedItems);
+        setFeedItems(items);
+        setFilteredItems(items);
       } catch (err) {
         setError('Failed to fetch RSS feed. Please try again later.');
       }
@@ -67,7 +49,44 @@ const RssFeedPage = () => {
     fetchRSSFeed();
   }, []);
 
-  // Filter by category
+  // Category categorization logic
+  const categorizeRFP = (title: string, description: string) => {
+    const categories = [
+      { keyword: 'Cardiology', category: 'Cardiology' },
+      { keyword: 'Oncology', category: 'Oncology' },
+      { keyword: 'Rare Diseases', category: 'Rare Diseases' },
+      { keyword: 'Neurology', category: 'Neurology' },
+      { keyword: 'Immunology', category: 'Immunology' },
+      { keyword: 'Behavioral', category: 'Behavioral' },
+      { keyword: 'OCD', category: 'OCD' },
+      { keyword: 'Infectious Disease', category: 'Infectious Disease' },
+      { keyword: 'Pediatrics', category: 'Pediatrics' },
+      { keyword: 'Metabolic', category: 'Metabolic Disorders' },
+    ];
+
+    for (let category of categories) {
+      if (title.toLowerCase().includes(category.keyword.toLowerCase()) || description.toLowerCase().includes(category.keyword.toLowerCase())) {
+        return category.category;
+      }
+    }
+
+    return 'Others'; // Default category for unmatched titles/descriptions
+  };
+
+  // Extract Status from the description
+  const getStatusFromDescription = (description: string) => {
+    if (description.includes('Active, not recruiting')) return 'Active, not recruiting';
+    if (description.includes('Active, recruiting')) return 'Active, recruiting';
+    if (description.includes('Recruiting')) return 'Recruiting';
+    if (description.includes('Not yet recruiting')) return 'Not yet recruiting';
+    if (description.includes('Completed')) return 'Completed';
+    if (description.includes('Enrolling by invitation')) return 'Enrolling by invitation';
+    if (description.includes('Terminated')) return 'Terminated';
+    if (description.includes('Temporarily not available')) return 'Temporarily not available';
+    return 'Not Available'; // Default if no status is found
+  };
+
+  // Filter by Category
   const handleCategoryChange = (e) => {
     const category = e.target.value;
     setSelectedCategory(category);
@@ -76,7 +95,31 @@ const RssFeedPage = () => {
     if (category === '') {
       setFilteredItems(feedItems);
     } else {
-      const filtered = feedItems.filter((item) => item.category === category);
+      const filtered = feedItems.filter((item) =>
+        item.category.toLowerCase().includes(category.toLowerCase())
+      );
+      setFilteredItems(filtered);
+    }
+  };
+
+  // Filter by Status
+  const handleStatusChange = (e) => {
+    const status = e.target.value;
+    setSelectedStatus(status);
+    setCurrentPage(1);
+
+    if (status === '') {
+      setFilteredItems(feedItems);
+    } else {
+      const filtered = feedItems.filter((item) => {
+        if (status === 'Recruiting') {
+          return item.status === 'Recruiting';
+        } else if (status === 'Not yet recruiting') {
+          return item.status === 'Not yet recruiting';
+        } else {
+          return item.status.toLowerCase().includes(status.toLowerCase());
+        }
+      });
       setFilteredItems(filtered);
     }
   };
@@ -117,11 +160,33 @@ const RssFeedPage = () => {
             className="px-3 py-2 border rounded-md"
           >
             <option value="">All Categories</option>
-            {Object.keys(categories).map((category, index) => (
-              <option key={index} value={category}>
-                {category}
-              </option>
-            ))}
+            <option value="Cardiology">Cardiology</option>
+            <option value="Oncology">Oncology</option>
+            <option value="Rare Diseases">Rare Diseases</option>
+            <option value="Neurology">Neurology</option>
+            <option value="Immunology">Immunology</option>
+            <option value="Behavioral">Behavioral</option>
+            <option value="OCD">OCD</option>
+            <option value="Infectious Disease">Infectious Disease</option>
+            <option value="Pediatrics">Pediatrics</option>
+            <option value="Metabolic Disorders">Metabolic Disorders</option>
+            <option value="Others">Others</option>
+          </select>
+
+          <select
+            value={selectedStatus}
+            onChange={handleStatusChange}
+            className="px-3 py-2 border rounded-md"
+          >
+            <option value="">All Statuses</option>
+            <option value="Recruiting">Recruiting</option>
+            <option value="Active, recruiting">Active, recruiting</option>
+            <option value="Active, not recruiting">Active, not recruiting</option>
+            <option value="Not yet recruiting">Not yet recruiting</option>
+            <option value="Completed">Completed</option>
+            <option value="Enrolling by invitation">Enrolling by invitation</option>
+            <option value="Terminated">Terminated</option>
+            <option value="Temporarily not available">Temporarily not available</option>
           </select>
 
           <button
@@ -151,7 +216,16 @@ const RssFeedPage = () => {
                 Read more
               </a>
               <p className="text-sm text-gray-500">Published on: {item.pubDate}</p>
-              <p className="text-xs text-gray-500">Category: {item.category}</p>
+
+              {/* Display the Category */}
+              <p className="text-sm text-gray-500 mt-2">
+                Category: {item.category || 'Not Categorized'}
+              </p>
+
+              {/* Display the Status */}
+              <p className="text-sm text-gray-500 mt-2">
+                Status: {item.status || 'Not Available'}
+              </p>
             </li>
           ))}
         </ul>
